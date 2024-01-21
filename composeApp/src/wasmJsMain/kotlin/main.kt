@@ -16,7 +16,7 @@ fun main() {
     val spinningWheelComponent = document.getElementById("wheel-component")?.let { canvas ->
         val webGlContext = detectWebGlContext(canvas as HTMLCanvasElement)
         webGlContext?.let { renderingContext ->
-            SpinningWheelComponent(renderingContext)
+            SpinningWheelComponent(10, renderingContext)
         }
     }
 
@@ -46,6 +46,13 @@ fun main() {
             }
         }
 
+        document.getElementById("scaling")?.let {
+            val scalingSlider = it as HTMLInputElement
+
+            scalingSlider.addEventListener("scaling") {
+                spinningWheelComponent.scale(scalingSlider.value.toFloatOrNull())
+            }
+        }
     }
 
 

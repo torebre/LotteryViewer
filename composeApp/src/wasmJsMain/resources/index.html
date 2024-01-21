@@ -5,12 +5,18 @@
     <title>Compose App</title>
     <script type="application/javascript" src="skiko.js"></script>
     <script type="application/javascript" src="composeApp.js"></script>
+    <link rel="stylesheet" href="lotterywheel.css"/>
 </head>
 <body>
 <canvas id="ComposeTarget"></canvas>
-<label for="x-position"></label><input id="x-position" type="range" min="1" max="100" value="50" class="slider">
-<label for="y-position"></label><input id="y-position" type="range" min="1" max="100" value="50" class="slider">
-<label for="rotation"></label><input id="rotation" type="range" min="0" max="6.2831853" value="0" step="0.1" class="slider">
-<canvas id="wheel-component" width="500" height="500"></canvas>
+<label for="x-position">X-position</label><input id="x-position" type="range" min="1" max="100" value="50" class="slider">
+<br>
+<label for="y-position">Y-position</label><input id="y-position" type="range" min="1" max="100" value="50" class="slider">
+<br>
+<label for="rotation">Rotation</label><input id="rotation" type="range" min="0" max="6.2831853" value="0" step="0.1" class="slider">
+<br>
+<label for="scaling">Scaling</label><input id="scaling" type="range" min="1" max="100" value="50" class="slider">
+<br>
+<canvas id="wheel-component" width="500" height="500" class="wheel"></canvas>
 </body>
 </html>

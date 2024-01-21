@@ -1,0 +1,1 @@
+data class Point2D(val xCoord: Float, val yCoord: Float)

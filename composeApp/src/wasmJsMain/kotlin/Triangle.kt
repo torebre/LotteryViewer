@@ -1,0 +1,1 @@
+data class Triangle(val a: Point2D, val b: Point2D, val c: Point2D)
