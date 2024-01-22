@@ -23,6 +23,9 @@ class SpinningWheelComponent(private val numberOfSlices: Int, private val render
     private val primitiveType = WebGLRenderingContext.TRIANGLES
     private val radius = 100f
 
+    // TODO Should take into consideration how big the wheel will be
+    private val circleStep = (PI / 200).toFloat()
+
     private val seed = Random.nextInt()
     private val random = Random(seed)
 
@@ -54,7 +57,6 @@ class SpinningWheelComponent(private val numberOfSlices: Int, private val render
     }
 
     private fun setup() {
-        renderingContext.bindBuffer(WebGLRenderingContext.ARRAY_BUFFER, positionBuffer)
         val origin = Point2D(
             renderingContext.canvas.width.toFloat() / 2,
             renderingContext.canvas.height.toFloat() / 2
@@ -62,20 +64,22 @@ class SpinningWheelComponent(private val numberOfSlices: Int, private val render
         this.origin = origin
         this.rotationMatrix = createRotationMatrix()
 
-        // TODO Add handling of resizing the canvas
-        renderingContext.viewport(0, 0, renderingContext.canvas.width, renderingContext.canvas.height)
-        renderingContext.clearColor(0.0f, 0.0f, 0.0f, 0.0f)
-        renderingContext.clear(WebGLRenderingContext.COLOR_BUFFER_BIT)
+        with(renderingContext) {
+            bindBuffer(WebGLRenderingContext.ARRAY_BUFFER, positionBuffer)
+            // TODO Add handling of resizing the canvas
+            viewport(0, 0, canvas.width, canvas.height)
+            clearColor(0.0f, 0.0f, 0.0f, 0.0f)
+            clear(WebGLRenderingContext.COLOR_BUFFER_BIT)
 
-        renderingContext.useProgram(program)
-        renderingContext.enableVertexAttribArray(positionAttributeLocation)
+            useProgram(program)
+            enableVertexAttribArray(positionAttributeLocation)
 
-        renderingContext.uniform2f(
-            resolutionUniformLocation,
-            renderingContext.canvas.width.toFloat(),
-            renderingContext.canvas.height.toFloat()
-        )
-
+            uniform2f(
+                resolutionUniformLocation,
+                canvas.width.toFloat(),
+                canvas.height.toFloat()
+            )
+        }
     }
 
     fun render() {
@@ -86,12 +90,20 @@ class SpinningWheelComponent(private val numberOfSlices: Int, private val render
             val slice = createSlice(currentStartAngle, sliceAngle, origin)
             currentStartAngle += sliceAngle
 
-            val points = Float32Array(2 * slice.size).also { it.addValues(slice) }
+            val trianglePoints = slice.flatMap {
+                sequenceOf(
+                    it.a.xCoord, it.a.yCoord,
+                    it.b.xCoord, it.b.yCoord,
+                    it.c.xCoord, it.c.yCoord
+                )
+            }.toList()
 
-            println("Test50: ${points.length}")
-            println("Test51: $currentStartAngle")
-            println("Test53: $origin")
-            println("Test54: $points")
+            val points = Float32Array(trianglePoints.size).also { it.addValues(trianglePoints) }
+
+//            println("Test50: ${points.length}")
+//            println("Test51: $currentStartAngle")
+//            println("Test53: $origin")
+//            println("Test54: $points")
 
             renderingContext.bufferData(
                 WebGLRenderingContext.ARRAY_BUFFER,
@@ -108,14 +120,19 @@ class SpinningWheelComponent(private val numberOfSlices: Int, private val render
             val offset = 0
             renderingContext.vertexAttribPointer(positionAttributeLocation, size, type, normalize, stride, offset)
 
-            val matrix = multiplyMatrices(translationMatrix, createTranslationMatrix(origin), rotationMatrix, createTranslationMatrix(Point2D(-origin.xCoord, -origin.yCoord)), scaleMatrix)
-
+            val matrix = multiplyMatrices(
+                translationMatrix,
+                createTranslationMatrix(origin),
+                rotationMatrix,
+                createTranslationMatrix(Point2D(-origin.xCoord, -origin.yCoord)),
+                scaleMatrix
+            )
 
 
 //            val matrix = multiplyMatrices(translationMatrix)
             renderingContext.uniformMatrix3fv(matrixLocation, false, matrix)
 
-            val count = 6
+            val count = trianglePoints.size / 2
             renderingContext.drawArrays(primitiveType, offset, count)
         }
     }
@@ -334,14 +351,32 @@ class SpinningWheelComponent(private val numberOfSlices: Int, private val render
             rotationMatrix[4] = c // Original
 //            rotationMatrix[5] = -origin.xCoord * s - origin.yCoord + c + origin.yCoord // Original
 
-            println("Test60: $rotationMatrix")
-
             render()
         }
     }
 
-    private fun createSlice(startAngle: Float, sliceAngle: Float, origin: Point2D): List<Point2D> {
-        return listOf(
+    private fun createSlice(startAngle: Float, sliceAngle: Float, origin: Point2D): List<Triangle2D> {
+        var currentStart = startAngle
+        val stop = startAngle + sliceAngle
+        val triangles = mutableListOf<Triangle2D>()
+
+        while (true) {
+            val newValue = currentStart + circleStep
+            if (newValue < stop) {
+                triangles.add(createTriangle2D(origin, currentStart, circleStep))
+            } else {
+                triangles.add(createTriangle2D(origin, currentStart, stop - currentStart))
+                break
+            }
+            currentStart = newValue
+        }
+
+        return triangles
+    }
+
+
+    private fun createTriangle2D(origin: Point2D, startAngle: Float, sliceAngle: Float): Triangle2D {
+        return Triangle2D(
             origin,
             Point2D(
                 origin.xCoord + radius * cos(startAngle),
@@ -363,6 +398,11 @@ fun Float32Array.addValues(values: List<Point2D>) {
     }
 }
 
+fun Float32Array.addValues(values: List<Float>) {
+    values.forEachIndexed { index, value ->
+        this[index] = value
+    }
+}
 
 fun Float32Array.addValues(values: FloatArray) {
     values.forEachIndexed { index, value ->
