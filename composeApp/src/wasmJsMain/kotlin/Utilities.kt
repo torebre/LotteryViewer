@@ -46,3 +46,41 @@ fun multiplyMatrices(a: Float32Array, b: Float32Array): Float32Array {
         )
     }
 }
+
+
+/**
+ * TODO As it is now this method does not distinguish between minimum or maximum points, so it cannot be guaranteed to find a minimum
+ */
+fun bisect(
+    valueFunction: (Float) -> Float,
+    bracketStart: Float,
+    pointInBracket: Float,
+    bracketEnd: Float
+): Float {
+    var a = bracketStart
+    var b = pointInBracket
+    var c = bracketEnd
+    val maxTries = 20
+
+    var tryCounter = 0
+    while (tryCounter < maxTries) {
+        val alpha = (valueFunction(b) - valueFunction(a)) / (b - a)
+        val beta = (valueFunction(c) - valueFunction(a) - alpha * (c - a)) / ((c - a) * (c - b))
+        val x = (a + b) / 2 - alpha / (2 * beta)
+        a = b
+        b = c
+        c = x
+
+        if (maxOf(a, b, c) - minOf(a, b, c) < 1e-6) {
+            break
+        }
+
+        ++tryCounter
+    }
+
+//            if (tryCounter == maxTries) {
+    // TODO Write warning or throw an exception?
+//            }
+
+    return c
+}

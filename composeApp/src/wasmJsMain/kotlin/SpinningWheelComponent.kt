@@ -1,7 +1,5 @@
 import org.khronos.webgl.*
-import kotlin.math.PI
-import kotlin.math.cos
-import kotlin.math.sin
+import kotlin.math.*
 import kotlin.random.Random
 
 class SpinningWheelComponent(private val numberOfSlices: Int, private val renderingContext: WebGLRenderingContext) {
@@ -14,14 +12,19 @@ class SpinningWheelComponent(private val numberOfSlices: Int, private val render
 
     private val translationMatrix = createTranslationMatrix()
     private var origin = Point2D(0f, 0f)
-    private var rotationMatrix = createRotationMatrix()
+    private var rotationAngleInRadians = 0f
+    private var rotationMatrix = createRotationMatrix(rotationAngleInRadians)
     private val scaleMatrix = createScalingMatrix()
 
     private val colorArray: List<Float32Array>
 
     // https://webglfundamentals.org/webgl/lessons/webgl-points-lines-triangles.html
     private val primitiveType = WebGLRenderingContext.TRIANGLES
+
     private val radius = 100f
+    private val markerLength = 30f
+    private val markerStart = Point2D(0f, 120f)
+    private val cutoffForMarker: Float
 
     // TODO Should take into consideration how big the wheel will be
     private val circleStep = (PI / 200).toFloat()
@@ -42,6 +45,8 @@ class SpinningWheelComponent(private val numberOfSlices: Int, private val render
             getFragmentShader()
         )
 
+        cutoffForMarker = (PI / 2 - findCutoffForMarker(markerLength, radius, markerStart)).toFloat()
+
         if (vertexShader != null && fragmentShader != null) {
             createProgram(renderingContext, vertexShader, fragmentShader)?.let {
                 program = it
@@ -53,7 +58,6 @@ class SpinningWheelComponent(private val numberOfSlices: Int, private val render
         }
 
         colorArray = createColorArray(numberOfSlices)
-
     }
 
     private fun setup() {
@@ -62,7 +66,7 @@ class SpinningWheelComponent(private val numberOfSlices: Int, private val render
             renderingContext.canvas.height.toFloat() / 2
         )
         this.origin = origin
-        this.rotationMatrix = createRotationMatrix()
+        this.rotationMatrix = createRotationMatrix(rotationAngleInRadians)
 
         with(renderingContext) {
             bindBuffer(WebGLRenderingContext.ARRAY_BUFFER, positionBuffer)
@@ -84,8 +88,13 @@ class SpinningWheelComponent(private val numberOfSlices: Int, private val render
 
     fun render() {
         val sliceAngle = (2 * PI / numberOfSlices.toFloat()).toFloat()
-        var currentStartAngle = 0f
+        renderLotteryWheel(sliceAngle)
 
+        createMarker(sliceAngle, markerStart)
+    }
+
+    private fun renderLotteryWheel(sliceAngle: Float) {
+        var currentStartAngle = 0f
         for (i in 0 until numberOfSlices) {
             val slice = createSlice(currentStartAngle, sliceAngle, origin)
             currentStartAngle += sliceAngle
@@ -100,10 +109,10 @@ class SpinningWheelComponent(private val numberOfSlices: Int, private val render
 
             val points = Float32Array(trianglePoints.size).also { it.addValues(trianglePoints) }
 
-//            println("Test50: ${points.length}")
-//            println("Test51: $currentStartAngle")
-//            println("Test53: $origin")
-//            println("Test54: $points")
+            //            println("Test50: ${points.length}")
+            //            println("Test51: $currentStartAngle")
+            //            println("Test53: $origin")
+            //            println("Test54: $points")
 
             renderingContext.bufferData(
                 WebGLRenderingContext.ARRAY_BUFFER,
@@ -129,12 +138,119 @@ class SpinningWheelComponent(private val numberOfSlices: Int, private val render
             )
 
 
-//            val matrix = multiplyMatrices(translationMatrix)
+            //            val matrix = multiplyMatrices(translationMatrix)
             renderingContext.uniformMatrix3fv(matrixLocation, false, matrix)
 
             val count = trianglePoints.size / 2
             renderingContext.drawArrays(primitiveType, offset, count)
         }
+    }
+
+
+    private fun createMarker(sliceAngle: Float, markerStart: Point2D) {
+        val markerRestingPointAngle = findMarkerRestingPointAngle(sliceAngle)
+//        val markerRestingPointAngle = 0.2f
+
+        println("Test51: $markerRestingPointAngle")
+        println("Test52: $cutoffForMarker")
+
+        val markerRestingPoint = getMarkerPointForSlice(markerRestingPointAngle, radius)
+
+        // TODO These coordinates are wrong, just here for testing
+        val trianglePoints = listOf(
+            markerRestingPoint.first, markerRestingPoint.second,
+            markerStart.xCoord, markerStart.yCoord,
+            markerStart.xCoord + 2f, markerStart.yCoord + 2f
+        )
+
+        println("Test50: $trianglePoints")
+
+
+//        val trianglePoints = listOf(
+//            0f, 0f,
+//            0f, 100f,
+//            100f, 0f
+//        )
+
+        val points = Float32Array(trianglePoints.size).also { it.addValues(trianglePoints) }
+
+//            println("Test50: ${points.length}")
+//            println("Test51: $currentStartAngle")
+//            println("Test53: $origin")
+//            println("Test54: $points")
+
+        renderingContext.bufferData(
+            WebGLRenderingContext.ARRAY_BUFFER,
+            points,
+            WebGLRenderingContext.STATIC_DRAW
+        )
+
+        renderingContext.uniform4fv(colorLocation, Float32Array(4).also {
+            it[0] = 1f
+            it[1] = 0f
+            it[2] = 0f
+            it[3] = 1f
+        })
+
+        val size = 2
+        val type = WebGLRenderingContext.FLOAT
+        val normalize = false
+        val stride = 0
+        val offset = 0
+        renderingContext.vertexAttribPointer(positionAttributeLocation, size, type, normalize, stride, offset)
+
+        val matrix = multiplyMatrices(
+            translationMatrix,
+//            createTranslationMatrix(origin),
+//            rotationMatrix,
+//            createTranslationMatrix(Point2D(-origin.xCoord, -origin.yCoord)),
+//            scaleMatrix
+        )
+
+//        val matrix = createIdentityMatrix()
+
+        renderingContext.uniformMatrix3fv(matrixLocation, false, matrix)
+
+        val count = trianglePoints.size / 2
+        renderingContext.drawArrays(primitiveType, offset, count)
+    }
+
+    private fun findMarkerRestingPointAngle(sliceAngle: Float): Float {
+        var currentAngle = rotationAngleInRadians
+
+        return if (currentAngle > PI / 2) {
+            while (currentAngle > cutoffForMarker) {
+                currentAngle -= sliceAngle
+            }
+            currentAngle
+        } else {
+            while (currentAngle < cutoffForMarker) {
+                currentAngle += sliceAngle
+            }
+            currentAngle + sliceAngle
+        }
+    }
+
+
+//    internal fun computeLengthForAngle(angle: Float,
+//                                       radius: Float,
+////                                       markerLength: Float,
+//                                       totalLength: Float): Float {
+////        val markerPoint = getMarkerPointForSlice(angle, radius)
+////        val length = sqrt(markerPoint.first.pow(2) + (totalLength-markerPoint.second).pow(2))
+////        markerLength - length
+//
+//        return sqrt(radius.pow(2) / (tan(angle).pow(2) - 1f) + (totalLength - radius * sqrt(1f - sin(angle).pow(2))).pow(2))
+//    }
+
+
+    internal fun getMarkerPointForSlice(angle: Float, radius: Float): Pair<Float, Float> {
+        val x = sqrt(radius.pow(2) / (tan(angle).pow(2) + 1f))
+        val y = sqrt(radius.pow(2) - x.pow(2))
+
+//        println("Test54: $x, $y, $angle, $radius")
+
+        return Pair(x, y)
     }
 
     private fun createColorArray(numberOfSlices: Int): List<Float32Array> {
@@ -148,13 +264,19 @@ class SpinningWheelComponent(private val numberOfSlices: Int, private val render
         }.toList()
     }
 
+    private fun createIdentityMatrix(): Float32Array {
+        return Float32Array(9).also {
+            it.addValues(floatArrayOf(1f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f))
+        }
+    }
+
     private fun createScalingMatrix(scaling: Pair<Float, Float> = Pair(1f, 1f)): Float32Array {
         return Float32Array(9).also {
             it.addValues(floatArrayOf(scaling.first, 0f, 0f, 0f, scaling.second, 0f, 0f, 0f, 1f))
         }
     }
 
-    private fun createRotationMatrix(angleInRadians: Float = 0f): Float32Array {
+    private fun createRotationMatrix(angleInRadians: Float): Float32Array {
         val c = cos(angleInRadians)
         val s = sin(angleInRadians)
 
@@ -298,6 +420,16 @@ class SpinningWheelComponent(private val numberOfSlices: Int, private val render
 
     fun rotate(angleInRadians: Float?) {
         angleInRadians?.let {
+            rotationAngleInRadians = it
+
+            while (rotationAngleInRadians < 0f) {
+                rotationAngleInRadians += 2 * PI.toFloat()
+            }
+
+            while (rotationAngleInRadians >= 2 * PI.toFloat()) {
+                rotationAngleInRadians -= 2 * PI.toFloat()
+            }
+
             val c = cos(it)
             val s = sin(it)
 
@@ -344,6 +476,41 @@ class SpinningWheelComponent(private val numberOfSlices: Int, private val render
                 origin.yCoord + radius * sin(startAngle + sliceAngle)
             )
         )
+    }
+
+
+    companion object {
+
+
+        /**
+         * The angle returned here is from the top and to the right.
+         */
+        fun findCutoffForMarker(
+            markerLength: Float,
+            lotteryWheelRadius: Float,
+            markerStart: Point2D
+        ): Float {
+            return bisect(
+                { inputAngle ->
+                    (markerLength - computeLengthForAngle(inputAngle, lotteryWheelRadius, markerStart)).pow(2)
+                },
+                0f,
+                PI.toFloat() / 16f,
+                PI.toFloat() / 2f,
+            )
+
+        }
+
+        fun computeLengthForAngle(
+            angle: Float,
+            radius: Float,
+            markerStart: Point2D
+        ): Float {
+            val y = sqrt(radius.pow(2) / (tan(angle).pow(2) + 1f))
+            val x = sqrt(radius.pow(2) - y.pow(2))
+
+            return sqrt((x - markerStart.xCoord).pow(2) + (y - markerStart.yCoord).pow(2))
+        }
     }
 
 }
