@@ -8,17 +8,16 @@ import org.w3c.dom.HTMLInputElement
  */
 @OptIn(ExperimentalComposeUiApi::class)
 fun main() {
-//    CanvasBasedWindow(canvasElementId = "ComposeTarget") { App() }
-
-    // window.addEventListener("load",
-    //    { event ->
-
     val spinningWheelComponent = document.getElementById("wheel-component")?.let { canvas ->
         val webGlContext = detectWebGlContext(canvas as HTMLCanvasElement)
         webGlContext?.let { renderingContext ->
             SpinningWheelComponent(10, renderingContext)
         }
     }
+
+//    spinningWheelComponent?.let {
+//        CanvasBasedWindow(canvasElementId = "ComposeTarget") { App(it) }
+//    }
 
     if (spinningWheelComponent != null) {
         spinningWheelComponent.render()
@@ -53,6 +52,46 @@ fun main() {
                 spinningWheelComponent.scale(scalingSlider.value.toFloatOrNull())
             }
         }
+
+        document.getElementById("rotation-angle")?.let {
+            spinningWheelComponent.addDebugListener(object : DebugListener {
+
+                override fun rotationChanged(rotationAngle: Float) {
+                    it.textContent = "Rotation angle: ${spinningWheelComponent.rotationAngleInRadians}"
+                }
+
+                override fun markerUpdated(
+                    markerPointOnWheel: Point2D,
+                    markerEnd: Point2D
+                ) {
+                    // Do nothing
+                }
+
+            })
+        }
+
+        document.getElementById("marker-debug")?.let {
+            spinningWheelComponent.addDebugListener(object: DebugListener {
+                override fun rotationChanged(rotationAngle: Float) {
+                    // Do nothing
+                }
+
+                override fun markerUpdated(
+                    markerPointOnWheel: Point2D,
+                    markerEnd: Point2D
+                ) {
+                    it.innerHTML = """
+                        Markerpoint on wheel: $markerPointOnWheel
+                        <br/>
+                        Marker end: $markerEnd
+                        """
+                }
+            })
+
+
+        }
+
+
     }
 
 
