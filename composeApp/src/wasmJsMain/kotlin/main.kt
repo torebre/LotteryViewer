@@ -1,5 +1,6 @@
 import androidx.compose.ui.ExperimentalComposeUiApi
 import kotlinx.browser.document
+import org.w3c.dom.HTMLButtonElement
 import org.w3c.dom.HTMLCanvasElement
 import org.w3c.dom.HTMLInputElement
 
@@ -8,10 +9,12 @@ import org.w3c.dom.HTMLInputElement
  */
 @OptIn(ExperimentalComposeUiApi::class)
 fun main() {
+    val numberOfSlices = 20
+
     val spinningWheelComponent = document.getElementById("wheel-component")?.let { canvas ->
         val webGlContext = detectWebGlContext(canvas as HTMLCanvasElement)
         webGlContext?.let { renderingContext ->
-            SpinningWheelComponent(10, renderingContext)
+            SpinningWheelComponent(numberOfSlices, renderingContext)
         }
     }
 
@@ -87,7 +90,14 @@ fun main() {
                         """
                 }
             })
+        }
 
+        document.getElementById("spin-button")?.let {
+            val buttonElement = it as HTMLButtonElement
+
+            buttonElement.addEventListener("click") { _ ->
+                spinningWheelComponent.doSpin()
+            }
 
         }
 
